@@ -417,6 +417,11 @@ interface RenderTarget {
 
     val hasDepthBuffer: Boolean
     val hasColorBuffer: Boolean
+
+    fun fillColor(color: ColorRGBa, attachment: Int)
+    fun fillDepth(depth: Double)
+    fun fillStencil(stencil: Int)
+    fun fillDepthStencil(depth: Double, stencil: Int)
 }
 
 fun renderTarget(width: Int, height: Int, contentScale: Double = 1.0, builder: RenderTargetBuilder.() -> Unit): RenderTarget {

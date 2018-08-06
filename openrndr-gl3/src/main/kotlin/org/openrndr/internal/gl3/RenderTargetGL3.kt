@@ -6,10 +6,12 @@ import org.openrndr.draw.ProgramRenderTarget
 import org.openrndr.draw.RenderTarget
 import org.lwjgl.glfw.GLFW.glfwGetCurrentContext
 import org.lwjgl.opengl.ARBFramebufferObject.glGenFramebuffers
+import org.lwjgl.opengl.GL11
 import org.lwjgl.opengl.GL11.*
 import org.lwjgl.opengl.GL20.glDrawBuffers
 import org.lwjgl.opengl.GL30.*
 import org.openrndr.Program
+import org.openrndr.color.ColorRGBa
 import java.util.*
 
 private val active = mutableMapOf<Long, Stack<RenderTargetGL3>>()
@@ -198,6 +200,28 @@ open class RenderTargetGL3(val framebuffer: Int, override val width: Int, overri
         }
         checkGLErrors()
     }
+
+    override fun fillColor(color: ColorRGBa, attachment: Int) {
+        TODO("not implemented")
+    }
+
+    override fun fillDepth(depth: Double) {
+        bound {
+            glClearBufferfv(GL_DEPTH, 0, floatArrayOf(depth.toFloat()))
+        }
+    }
+    override fun fillStencil(stencil: Int) {
+        bound {
+            glClearBufferiv(GL11.GL_STENCIL, 0, intArrayOf(stencil))
+        }
+    }
+
+    override fun fillDepthStencil(depth: Double, stencil: Int) {
+        bound {
+            glClearBufferfi(GL_DEPTH_STENCIL, 0, depth.toFloat(), stencil)
+        }
+    }
+
 
     override fun detachColorBuffers() {
         bound {

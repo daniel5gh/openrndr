@@ -20,8 +20,8 @@ import org.lwjgl.glfw.GLFW.glfwSwapBuffers
 import org.lwjgl.glfw.GLFW.glfwWindowShouldClose
 import org.lwjgl.glfw.GLFW.GLFW_RELEASE
 import org.lwjgl.glfw.GLFW.glfwSetKeyCallback
-import org.lwjgl.opengl.GL11.*
 import org.lwjgl.glfw.GLFWErrorCallback
+import org.lwjgl.opengl.GL11
 import org.lwjgl.opengl.GLUtil
 
 import org.openrndr.*
@@ -30,9 +30,33 @@ import org.openrndr.internal.Driver
 import org.openrndr.math.Vector2
 import java.util.*
 import org.lwjgl.opengl.GL30.*
+import org.lwjgl.openvr.*
+import org.lwjgl.openvr.VR.*
+import org.openrndr.draw.RenderTarget
+import org.openrndr.draw.renderTarget
+import org.openrndr.math.Matrix44
+import java.nio.IntBuffer
 
 private val logger = KotlinLogging.logger {}
 internal var primaryWindow: Long = NULL
+
+fun convertHmdMatrix44(m : HmdMatrix44) : Matrix44 {
+    return Matrix44(
+            m.m(0).toDouble(), m.m(1).toDouble(), m.m(2).toDouble(), m.m(3).toDouble(),
+            m.m(4).toDouble(), m.m(5).toDouble(), m.m(6).toDouble(), m.m(7).toDouble(),
+            m.m(8).toDouble(), m.m(8).toDouble(), m.m(10).toDouble(), m.m(11).toDouble(),
+            m.m(12).toDouble(), m.m(13).toDouble(), m.m(14).toDouble(), m.m(15).toDouble()
+    )
+}
+
+fun convertHmdMatrix34(m : HmdMatrix34) : Matrix44 {
+    return Matrix44(
+            m.m(0).toDouble(), m.m(4).toDouble(), m.m(8).toDouble(), 0.0,
+            m.m(1).toDouble(), m.m(5).toDouble(), m.m(9).toDouble(), 0.0,
+            m.m(2).toDouble(), m.m(6).toDouble(), m.m(10).toDouble(), 0.0,
+            m.m(3).toDouble(), m.m(7).toDouble(), m.m(11).toDouble(), 1.0
+    )
+}
 
 class ApplicationGLFWGL3(private val program: Program, private val configuration: Configuration) : Application() {
     private var windowFocused = true
@@ -43,6 +67,11 @@ class ApplicationGLFWGL3(private val program: Program, private val configuration
     private val fixWindowSize = System.getProperty("os.name").contains("windows", true)
     private var setupCalled = false
     override var presentationMode: PresentationMode = PresentationMode.AUTOMATIC
+
+    private var vrMode = false
+//    val hmdCamera = HMDCamera()
+    lateinit var rtLeft: RenderTarget
+    lateinit var rtRight: RenderTarget
 
     override var windowPosition: Vector2
         get() {
@@ -95,6 +124,65 @@ class ApplicationGLFWGL3(private val program: Program, private val configuration
         Driver.driver = driver
         program.application = this
         createPrimaryWindow()
+    }
+
+    /**
+     * Initialize OpenVR
+     *
+     * Call after OpenGL context has been created and made current
+     */
+    private fun vrInit() {
+        try {
+            val peError : IntBuffer = IntBuffer.allocate(1)
+            val eType = EVRApplicationType_VRApplication_Scene
+            val token = VR_InitInternal(peError, eType)
+            if( peError.get(0) != 0 ) {
+                println("OpenVR Initialize Error: ${peError.get(0)} https://github.com/ValveSoftware/openvr/wiki/HmdError")
+                println(VR_GetVRInitErrorAsEnglishDescription(peError.get(0)))
+                return
+            }
+            OpenVR.create(token)
+            vrMode = true
+            println("OpenVR Initialized: ${VR_RuntimePath()} ")
+
+            val pnWidth : IntBuffer = IntBuffer.allocate(1)
+            val pnHeight : IntBuffer = IntBuffer.allocate(1)
+//            EXCEPTION_ACCESS_VIOLATION?
+//            VRSystem.VRSystem_GetRecommendedRenderTargetSize(pnWidth, pnHeight)
+            // hack hack, hardcode some size instead
+            pnWidth.put(1024)
+            pnWidth.rewind()
+            pnHeight.put(1024)
+            pnHeight.rewind()
+            println("OpenVR Suggested render target size: ${pnWidth.get(0)}x${pnHeight.get(0)}")
+            rtLeft = renderTarget(pnWidth.get(0), pnHeight.get(0)) {
+                colorBuffer()
+            }
+            rtRight = renderTarget(pnWidth.get(0), pnHeight.get(0)) {
+                colorBuffer()
+            }
+
+            // get projection matrices
+            val matrix44 = HmdMatrix44.create()
+            VRSystem.VRSystem_GetProjectionMatrix(EVREye_Eye_Left, 0.1f, 500.0f, matrix44)
+            hmdCamera.projectionLeft = convertHmdMatrix44(matrix44)
+            VRSystem.VRSystem_GetProjectionMatrix(EVREye_Eye_Right, 0.1f, 500.0f, matrix44)
+            hmdCamera.projectionRight = convertHmdMatrix44(matrix44)
+            println("OpenVR projection Left:\n${hmdCamera.projectionLeft}")
+            println("OpenVR projection Right:\n${hmdCamera.projectionRight}")
+
+            // get eye offset matrices
+            val matrix34 = HmdMatrix34.create()
+            VRSystem.VRSystem_GetEyeToHeadTransform(EVREye_Eye_Left, matrix34)
+            hmdCamera.eyeLeft = convertHmdMatrix34(matrix34)
+            VRSystem.VRSystem_GetEyeToHeadTransform(EVREye_Eye_Right, matrix34)
+            hmdCamera.eyeRight = convertHmdMatrix34(matrix34)
+            println("OpenVR eye Left:\n${hmdCamera.eyeLeft}")
+            println("OpenVR eye Right:\n${hmdCamera.eyeRight}")
+            debugGLErrors { null }
+        } catch (e: Exception) {
+            println("No OpenVR support! $e")
+        }
     }
 
     override fun setup() {
@@ -297,6 +385,9 @@ class ApplicationGLFWGL3(private val program: Program, private val configuration
         val defaultRenderTarget = ProgramRenderTargetGL3(program)
         defaultRenderTarget.bind()
 
+        // sets this.vrMode if VR can be initialized
+        vrInit()
+
         setupSizes()
         program.drawer.ortho()
     }
@@ -467,6 +558,8 @@ class ApplicationGLFWGL3(private val program: Program, private val configuration
         }
         logger.info { "exiting loop" }
 
+        if (vrMode)
+            VR_ShutdownInternal()
         glfwFreeCallbacks(window)
         glfwDestroyWindow(window)
 
@@ -495,6 +588,60 @@ class ApplicationGLFWGL3(private val program: Program, private val configuration
         program.mouse.dragged.deliver()
     }
 
+    /**
+     * Does all the needful VR things at the start of a frame
+     *
+     * It's best to call this as late as possible before any rendering will be done.
+     * This because we get the HMD orientation here and we want to reduce the lag as
+     * much as possible.
+     */
+    private fun vrPreDraw() {
+        val pRenderPoseArray = TrackedDevicePose.create(k_unMaxTrackedDeviceCount)
+        val pGamePoseArray = TrackedDevicePose.create(k_unMaxTrackedDeviceCount)
+
+        // TODO handle openvr events VRSystem_PollNextEvent and processVREvent
+
+        VRCompositor.VRCompositor_WaitGetPoses(pRenderPoseArray, pGamePoseArray)
+        // get first render pose use its mDeviceToAbsoluteTracking as head space matrix
+        val view= convertHmdMatrix34(pRenderPoseArray.get(0).mDeviceToAbsoluteTracking())
+        hmdCamera.viewLeft = hmdCamera.eyeLeft * view
+        hmdCamera.viewRight = hmdCamera.eyeRight * view
+    }
+
+
+    private fun vrDraw() {
+        // TODO(VR): if rendering separately, can we use just one target? saving some gpu mem
+        hmdCamera.currentEye = Eye.Left
+        rtLeft.bind()
+        program.drawImpl()
+        rtLeft.unbind()
+        hmdCamera.currentEye = Eye.Right
+        rtRight.bind()
+        program.drawImpl()
+        rtRight.unbind()
+
+        val texture = Texture.create()
+        texture.handle((rtLeft.colorBuffers[0] as ColorBufferGL3).texture.toLong())
+        texture.eType(ETextureType_TextureType_OpenGL)
+        texture.eColorSpace(EColorSpace_ColorSpace_Gamma)
+        VRCompositor.VRCompositor_Submit(
+                EVREye_Eye_Left,
+                texture,
+                null,
+                EVRSubmitFlags_Submit_Default
+        )
+        texture.handle((rtRight.colorBuffers[0] as ColorBufferGL3).texture.toLong())
+        VRCompositor.VRCompositor_Submit(
+                EVREye_Eye_Right,
+                texture,
+                null,
+                EVRSubmitFlags_Submit_Default
+        )
+        // TODO(VR): OpenVR compositor expects a texture object of target GL_TEXTURE_2D_MULTISAMPLE, ours is GL_TEXTURE_2D, leading to a "GL_INVALID_OPERATION error generated. Target doesn't match the texture's target."
+        GL11.glGetError() // clear error state :)
+        checkGLErrors { null }
+    }
+
     private fun drawFrame(): Throwable? {
         setupSizes()
         glBindVertexArray(vaos[0])
@@ -503,6 +650,12 @@ class ApplicationGLFWGL3(private val program: Program, private val configuration
         deliverEvents()
         try {
             logger.trace { "window: ${program.window.size.x.toInt()}x${program.window.size.y.toInt()} program: ${program.width}x${program.height}" }
+            if (vrMode) {
+                vrPreDraw()
+                vrDraw()
+            }
+            // if vr mode, mirror mode ON, drawing right eye because this is the state of hmdCamera left by vrDraw()
+            // note that this will use the right eye's perspective matrix, with a non square window it will look stretched
             program.drawImpl()
         } catch (e: Throwable) {
             logger.error { "caught exception, breaking animation loop" }

@@ -1,11 +1,47 @@
 package org.openrndr
 
+import org.openrndr.math.Matrix44
 import org.openrndr.math.Vector2
 import kotlin.concurrent.thread
 
 enum class PresentationMode {
     AUTOMATIC,
     MANUAL,
+}
+
+enum class Eye {
+    Left,
+    Right,
+}
+
+class HMDCamera() {
+    var currentEye = Eye.Left
+    var projectionLeft = Matrix44.IDENTITY
+    var projectionRight = Matrix44.IDENTITY
+
+    // relative to head
+    var eyeLeft = Matrix44.IDENTITY
+    var eyeRight = Matrix44.IDENTITY
+
+    var viewLeft = Matrix44.IDENTITY
+    var viewRight = Matrix44.IDENTITY
+
+    // generic camera API
+    var projection: Matrix44 = Matrix44.IDENTITY
+        get() {
+            return when (currentEye) {
+                Eye.Left -> projectionLeft
+                Eye.Right -> projectionRight
+            }
+        }
+
+    var view: Matrix44 = Matrix44.IDENTITY
+        get() {
+            return when (currentEye) {
+                Eye.Left -> viewLeft
+                Eye.Right -> viewRight
+            }
+        }
 }
 
 abstract class Application {
@@ -50,6 +86,8 @@ abstract class Application {
     abstract val seconds: Double
 
     abstract var presentationMode: PresentationMode
+
+    val hmdCamera: HMDCamera = HMDCamera()
 }
 
 fun application(program: Program, configuration: Configuration = Configuration()) {

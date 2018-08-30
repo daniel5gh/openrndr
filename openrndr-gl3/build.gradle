@@ -10,6 +10,7 @@ dependencies {
     implementation "org.lwjgl:lwjgl-stb:$lwjglVersion"
 
     implementation "org.lwjgl:lwjgl-egl:$lwjglVersion"
+    implementation "org.lwjgl:lwjgl-openvr:$lwjglVersion"
     testRuntime project(":openrndr-gl3-natives-windows")
     testRuntime project(":openrndr-gl3-natives-macos")
     testRuntime 'org.slf4j:slf4j-simple:1.7.5'

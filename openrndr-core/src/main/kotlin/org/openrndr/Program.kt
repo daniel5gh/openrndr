@@ -17,6 +17,37 @@ enum class UnfocusBehaviour {
     THROTTLE /** Throttle drawing **/
 }
 
+class Mouse {
+    class MouseEvent(val position: Vector2, val rotation: Vector2, val dragDisplacement: Vector2, val type: MouseEventType, val button: MouseButton, val modifiers: Set<KeyboardModifier>, var propagationCancelled:Boolean = false) {
+        fun cancelPropagation() {
+            propagationCancelled = true
+        }
+    }
+
+    var position = Vector2(0.0, 0.0)
+
+    val buttonDown = Event<MouseEvent>().postpone(true)
+    val buttonUp = Event<MouseEvent>().postpone(true)
+    val dragged = Event<MouseEvent>().postpone(true)
+    val moved = Event<MouseEvent>().postpone(true)
+    val scrolled = Event<MouseEvent>().postpone(true)
+    val clicked =  Event<MouseEvent>().postpone(true)
+}
+
+
+class CharacterEvent(val character:Char, val modifiers: Set<KeyboardModifier>, var propagationCancelled: Boolean = false) {
+    fun cancelPropagation() {
+        propagationCancelled = true
+    }
+}
+
+class Keyboard {
+    val keyDown = Event<KeyEvent>().postpone(true)
+    val keyUp = Event<KeyEvent>().postpone(true)
+    val keyRepeat = Event<KeyEvent>().postpone(true)
+    val character = Event<CharacterEvent>().postpone(true)
+}
+
 class Configuration {
 
     /**
@@ -269,40 +300,6 @@ open class Program {
 
     val window = Window()
 
-    class CharacterEvent(val character:Char, val modifiers: Set<KeyboardModifier>, var propagationCancelled: Boolean = false) {
-        fun cancelPropagation() {
-            propagationCancelled = true
-        }
-    }
-
-    class Keyboard {
-        val keyDown = Event<KeyEvent>().postpone(true)
-        val keyUp = Event<KeyEvent>().postpone(true)
-        val keyRepeat = Event<KeyEvent>().postpone(true)
-        val character = Event<CharacterEvent>().postpone(true)
-    }
-
-    val keyboard = Keyboard()
-
-    class Mouse {
-        class MouseEvent(val position: Vector2, val rotation: Vector2, val dragDisplacement: Vector2, val type: MouseEventType, val button: MouseButton, val modifiers: Set<KeyboardModifier>, var propagationCancelled:Boolean = false) {
-            fun cancelPropagation() {
-                propagationCancelled = true
-            }
-        }
-
-        var position = Vector2(0.0, 0.0)
-
-        val buttonDown = Event<MouseEvent>().postpone(true)
-        val buttonUp = Event<MouseEvent>().postpone(true)
-        val dragged = Event<MouseEvent>().postpone(true)
-        val moved = Event<MouseEvent>().postpone(true)
-        val scrolled = Event<MouseEvent>().postpone(true)
-        val clicked =  Event<MouseEvent>().postpone(true)
-    }
-
-    val mouse = Mouse()
-
     /**
      * This is ran exactly once before the first call to draw()
      */
@@ -323,5 +320,10 @@ open class Program {
     * This is the user facing draw call. It should be overridden by the user.
     */
     open fun draw() {}
-
 }
+
+val programKeyboardEvents = mutableMapOf<Program, Keyboard>()
+val programMouseEvents = mutableMapOf<Program, Mouse>()
+
+val Program.keyboard:Keyboard get() = programKeyboardEvents.getOrPut(this) { Keyboard()}
+val Program.mouse:Mouse get() = programMouseEvents.getOrPut(this) { Mouse() }

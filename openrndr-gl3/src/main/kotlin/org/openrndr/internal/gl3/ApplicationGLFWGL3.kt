@@ -416,7 +416,7 @@ class ApplicationGLFWGL3(private val program: Program, private val configuration
         }
 
         glfwSetCharCallback(window) { window, codepoint ->
-            program.keyboard.character.trigger(Program.CharacterEvent(codepoint.toChar(), emptySet()))
+            program.keyboard.character.trigger(CharacterEvent(codepoint.toChar(), emptySet()))
         }
 
         glfwSetDropCallback(window) { _, count, names ->
@@ -430,7 +430,7 @@ class ApplicationGLFWGL3(private val program: Program, private val configuration
 
         var down = false
         glfwSetScrollCallback(window) { _, xoffset, yoffset ->
-            program.mouse.scrolled.trigger(Program.Mouse.MouseEvent(program.mouse.position, Vector2(xoffset, yoffset), Vector2.ZERO, MouseEventType.SCROLLED, MouseButton.NONE, globalModifiers))
+            program.mouse.scrolled.trigger(Mouse.MouseEvent(program.mouse.position, Vector2(xoffset, yoffset), Vector2.ZERO, MouseEventType.SCROLLED, MouseButton.NONE, globalModifiers))
         }
 
         glfwSetMouseButtonCallback(window) { _, button, action, mods ->
@@ -461,7 +461,7 @@ class ApplicationGLFWGL3(private val program: Program, private val configuration
                 down = true
                 lastDragPosition = program.mouse.position
                 program.mouse.buttonDown.trigger(
-                        Program.Mouse.MouseEvent(program.mouse.position, Vector2.ZERO, Vector2.ZERO, MouseEventType.BUTTON_DOWN, mouseButton, modifiers)
+                        Mouse.MouseEvent(program.mouse.position, Vector2.ZERO, Vector2.ZERO, MouseEventType.BUTTON_DOWN, mouseButton, modifiers)
                 )
                 buttonsDown.set(button, true)
             }
@@ -469,12 +469,12 @@ class ApplicationGLFWGL3(private val program: Program, private val configuration
             if (action == GLFW_RELEASE) {
                 down = false
                 program.mouse.buttonUp.trigger(
-                        Program.Mouse.MouseEvent(program.mouse.position, Vector2.ZERO, Vector2.ZERO, MouseEventType.BUTTON_UP, mouseButton, modifiers)
+                        Mouse.MouseEvent(program.mouse.position, Vector2.ZERO, Vector2.ZERO, MouseEventType.BUTTON_UP, mouseButton, modifiers)
                 )
                 buttonsDown.set(button, false)
 
                 program.mouse.clicked.trigger(
-                        Program.Mouse.MouseEvent(program.mouse.position, Vector2.ZERO, Vector2.ZERO, MouseEventType.CLICKED, mouseButton, modifiers)
+                        Mouse.MouseEvent(program.mouse.position, Vector2.ZERO, Vector2.ZERO, MouseEventType.CLICKED, mouseButton, modifiers)
                 )
             }
         }
@@ -483,9 +483,9 @@ class ApplicationGLFWGL3(private val program: Program, private val configuration
             val position = if (fixWindowSize) Vector2(xpos, ypos) / program.window.scale else Vector2(xpos, ypos)
             logger.trace { "mouse moved $xpos $ypos -- $position" }
             program.mouse.position = position
-            program.mouse.moved.trigger(Program.Mouse.MouseEvent(position, Vector2.ZERO, Vector2.ZERO, MouseEventType.MOVED, MouseButton.NONE, globalModifiers))
+            program.mouse.moved.trigger(Mouse.MouseEvent(position, Vector2.ZERO, Vector2.ZERO, MouseEventType.MOVED, MouseButton.NONE, globalModifiers))
             if (down) {
-                program.mouse.dragged.trigger(Program.Mouse.MouseEvent(position, Vector2.ZERO, position - lastDragPosition, MouseEventType.DRAGGED, MouseButton.NONE, globalModifiers))
+                program.mouse.dragged.trigger(Mouse.MouseEvent(position, Vector2.ZERO, position - lastDragPosition, MouseEventType.DRAGGED, MouseButton.NONE, globalModifiers))
                 lastDragPosition = position
             }
         }

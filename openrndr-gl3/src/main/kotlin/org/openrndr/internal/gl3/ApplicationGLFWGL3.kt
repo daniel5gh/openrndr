@@ -150,16 +150,18 @@ class ApplicationGLFWGL3(private val program: Program, private val configuration
 //            EXCEPTION_ACCESS_VIOLATION?
 //            VRSystem.VRSystem_GetRecommendedRenderTargetSize(pnWidth, pnHeight)
             // hack hack, hardcode some size instead
-            pnWidth.put(1024)
+            pnWidth.put(1024*2)
             pnWidth.rewind()
-            pnHeight.put(1024)
+            pnHeight.put(1024*2)
             pnHeight.rewind()
             println("OpenVR Suggested render target size: ${pnWidth.get(0)}x${pnHeight.get(0)}")
             rtLeft = renderTarget(pnWidth.get(0), pnHeight.get(0)) {
                 colorBuffer()
+                depthBuffer()
             }
             rtRight = renderTarget(pnWidth.get(0), pnHeight.get(0)) {
                 colorBuffer()
+                depthBuffer()
             }
 
             // get projection matrices
